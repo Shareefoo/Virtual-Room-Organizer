@@ -3,12 +3,11 @@ import time
 import shutil
 import threading
 from watchdog.observers import Observer
-from watchdog.events import FileSystemEvent, FileSystemEventHandler
-from tkinter import Tk, Label, Button, Entry, filedialog, messagebox, StringVar
-
+from watchdog.events import FileSystemEventHandler
+from tkinter import Tk, Label, Button, Entry, filedialog, messagebox, StringVar, Toplevel, Frame
+from tkinter import ttk
 
 class FileOrganizer:
-
     def __init__(self, master):
         self.master = master
         master.title("File Organizer")
@@ -16,32 +15,77 @@ class FileOrganizer:
         # Define the directory to be monitored
         self.downloads_dir = StringVar(value=os.path.expanduser("~/Downloads"))
 
-        self.label = Label(master, text="Downloads Directory:")
-        self.label.pack()
+        # Define the target directories
+        self.target_dirs = {
+            "images": StringVar(value=os.path.expanduser("~/Downloads/Images")),
+            "music": StringVar(value=os.path.expanduser("~/Downloads/Music")),
+            "videos": StringVar(value=os.path.expanduser("~/Downloads/Videos")),
+            "programs": StringVar(value=os.path.expanduser("~/Downloads/Programs")),
+            "compressed": StringVar(value=os.path.expanduser("~/Downloads/Compressed")),
+            "documents": StringVar(value=os.path.expanduser("~/Downloads/Documents")),
+            "others": StringVar(value=os.path.expanduser("~/Downloads/Others"))
+        }
 
-        self.downloads_entry = Entry(master, textvariable=self.downloads_dir, width=50)
-        self.downloads_entry.pack()
+        main_frame = ttk.Frame(master, padding="10 10 10 10")
+        main_frame.pack(fill="both", expand=True)
 
-        self.browse_button = Button(master, text="Browse", command=self.browse_directory)
-        self.browse_button.pack()
+        self.label = ttk.Label(main_frame, text="Downloads Directory:")
+        self.label.grid(column=0, row=0, sticky="W", padx=5, pady=5)
 
-        self.start_button = Button(master, text="Start Monitoring", command=self.start_monitoring)
-        self.start_button.pack()
+        self.downloads_entry = ttk.Entry(main_frame, textvariable=self.downloads_dir, width=50)
+        self.downloads_entry.grid(column=1, row=0, sticky="W", padx=5, pady=5)
 
-        self.stop_button = Button(master, text="Stop Monitoring", command=self.stop_monitoring, state='disabled')
-        self.stop_button.pack()
+        self.browse_button = ttk.Button(main_frame, text="Browse", command=self.browse_directory)
+        self.browse_button.grid(column=2, row=0, sticky="W", padx=5, pady=5)
 
-        self.status_label = Label(master, text="Status: Not monitoring")
-        self.status_label.pack()
+        self.options_button = ttk.Button(main_frame, text="Options", command=self.open_options)
+        self.options_button.grid(column=0, row=1, sticky="W", padx=5, pady=5)
+
+        self.start_button = ttk.Button(main_frame, text="Start Monitoring", command=self.start_monitoring)
+        self.start_button.grid(column=1, row=1, sticky="W", padx=5, pady=5)
+
+        self.stop_button = ttk.Button(main_frame, text="Stop Monitoring", command=self.stop_monitoring, state='disabled')
+        self.stop_button.grid(column=2, row=1, sticky="W", padx=5, pady=5)
+
+        self.status_label = ttk.Label(main_frame, text="Status: Not monitoring")
+        self.status_label.grid(column=0, row=2, columnspan=3, sticky="W", padx=5, pady=5)
 
         self.observer = None
-
 
     def browse_directory(self):
         directory = filedialog.askdirectory(initialdir=self.downloads_dir.get())
         if directory:
             self.downloads_dir.set(directory)
 
+    def open_options(self):
+        options_window = Toplevel(self.master)
+        options_window.title("Options")
+
+        options_frame = ttk.Frame(options_window, padding="10 10 10 10")
+        options_frame.pack(fill="both", expand=True)
+
+        ttk.Label(options_frame, text="Images Directory:").grid(column=0, row=0, sticky="W", padx=5, pady=5)
+        ttk.Entry(options_frame, textvariable=self.target_dirs["images"], width=50).grid(column=1, row=0, sticky="W", padx=5, pady=5)
+        ttk.Button(options_frame, text="Browse", command=lambda: self.browse_target_directory("images")).grid(column=2, row=0, sticky="W", padx=5, pady=5)
+
+        ttk.Label(options_frame, text="Documents Directory:").grid(column=0, row=1, sticky="W", padx=5, pady=5)
+        ttk.Entry(options_frame, textvariable=self.target_dirs["documents"], width=50).grid(column=1, row=1, sticky="W", padx=5, pady=5)
+        ttk.Button(options_frame, text="Browse", command=lambda: self.browse_target_directory("documents")).grid(column=2, row=1, sticky="W", padx=5, pady=5)
+
+        ttk.Label(options_frame, text="Videos Directory:").grid(column=0, row=2, sticky="W", padx=5, pady=5)
+        ttk.Entry(options_frame, textvariable=self.target_dirs["videos"], width=50).grid(column=1, row=2, sticky="W", padx=5, pady=5)
+        ttk.Button(options_frame, text="Browse", command=lambda: self.browse_target_directory("videos")).grid(column=2, row=2, sticky="W", padx=5, pady=5)
+
+        ttk.Label(options_frame, text="Others Directory:").grid(column=0, row=3, sticky="W", padx=5, pady=5)
+        ttk.Entry(options_frame, textvariable=self.target_dirs["others"], width=50).grid(column=1, row=3, sticky="W", padx=5, pady=5)
+        ttk.Button(options_frame, text="Browse", command=lambda: self.browse_target_directory("others")).grid(column=2, row=3, sticky="W", padx=5, pady=5)
+
+        ttk.Button(options_frame, text="Save", command=options_window.destroy).grid(column=0, row=4, columnspan=3, pady=10)
+
+    def browse_target_directory(self, key):
+        directory = filedialog.askdirectory(initialdir=self.target_dirs[key].get())
+        if directory:
+            self.target_dirs[key].set(directory)
 
     def start_monitoring(self):
         self.downloads_dir_path = self.downloads_dir.get()
@@ -50,8 +94,7 @@ class FileOrganizer:
             return
 
         self.observer = Observer()
-        event_handler = DownloadEventHandler(self.update_status)
-        event_handler.set_target_dirs(self.downloads_dir_path)
+        event_handler = DownloadEventHandler(self.update_status, self.target_dirs)
         self.observer.schedule(event_handler, self.downloads_dir_path, recursive=False)
 
         self.observer_thread = threading.Thread(target=self.observer.start)
@@ -61,7 +104,6 @@ class FileOrganizer:
         self.stop_button.config(state='normal')
         self.update_status(f"Monitoring {self.downloads_dir_path}")
 
-
     def stop_monitoring(self):
         if self.observer:
             self.observer.stop()
@@ -70,35 +112,19 @@ class FileOrganizer:
 
         self.start_button.config(state='normal')
         self.stop_button.config(state='disabled')
-        self.status_label.config(text="Status: Not monitoring")
+        self.update_status("Not monitoring")
 
     def update_status(self, message):
         self.status_label.config(text=f"Status: {message}")
 
-
-# Handler for prcoessing file system events
 class DownloadEventHandler(FileSystemEventHandler):
-
-    def __init__(self, status_callback):
+    def __init__(self, status_callback, target_dirs):
         super().__init__()
         self.status_callback = status_callback
-        self.TARGET_DIRS = {}
-
-    def set_target_dirs(self, base_dir):
-        self.TARGET_DIRS = {
-            "images": os.path.join(base_dir, "Images"),
-            "music": os.path.join(base_dir, "Music"),
-            "videos": os.path.join(base_dir, "Videos"),
-            "documents": os.path.join(base_dir, "Documents"),
-            "programs": os.path.join(base_dir, "Programs"),
-            "others": os.path.join(base_dir, "Others")
-        }
-
-        # Ensure the target directories exists
+        self.TARGET_DIRS = {key: var.get() for key, var in target_dirs.items()}
         for path in self.TARGET_DIRS.values():
             os.makedirs(path, exist_ok=True)
 
-    # Function to determine the file type based on extension
     @staticmethod
     def get_file_type(file_path):
         ext = os.path.splitext(file_path)[1].lower()
@@ -108,17 +134,15 @@ class DownloadEventHandler(FileSystemEventHandler):
             return "music"
         elif ext in ['.mp4', '.mov', '.avi']:
             return "videos"
-        elif ext in ['.text', '.pdf', '.epub', '.docx', 'pptx', 'xlsx']:
-            return "documents"
         elif ext in ['.exe', '.msi']:
             return "programs"
-        elif ext in ['.zip', '.rar']:
+        elif ext in ['.rar', '.zip']:
             return "compressed"
+        elif ext in ['.txt', '.pdf', '.docx', '.pptx', '.xlsx']:
+            return "documents"
         else:
             return "others"
-        
-        
-    # Function to move file with retry mechanism to prevent errors when the file is being used by another process
+
     def move_file_with_retry(self, src_path, dest_path, retries=5, delay=1):
         for i in range(retries):
             try:
@@ -137,9 +161,11 @@ class DownloadEventHandler(FileSystemEventHandler):
             file_type = self.get_file_type(file_path)
             target_path = os.path.join(self.TARGET_DIRS[file_type], os.path.basename(file_path))
             self.move_file_with_retry(file_path, target_path)
-    
 
 if __name__ == "__main__":
     root = Tk()
+    root.style = ttk.Style()
+    root.style.theme_use('clam')  # You can try other themes such as 'default', 'classic', 'clam', 'alt', 'vista', 'xpnative'
+
     file_organizer = FileOrganizer(root)
     root.mainloop()
