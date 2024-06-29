@@ -50,7 +50,7 @@ class FileOrganizer:
             return
 
         self.observer = Observer()
-        event_handler = DownloadEventHandler()
+        event_handler = DownloadEventHandler(self.update_status)
         event_handler.set_target_dirs(self.downloads_dir_path)
         self.observer.schedule(event_handler, self.downloads_dir_path, recursive=False)
 
@@ -59,7 +59,7 @@ class FileOrganizer:
 
         self.start_button.config(state='disabled')
         self.stop_button.config(state='normal')
-        self.status_label.config(text=f"Status: Monitoring {self.downloads_dir_path}")
+        self.update_status(f"Monitoring {self.downloads_dir_path}")
 
 
     def stop_monitoring(self):
@@ -72,12 +72,16 @@ class FileOrganizer:
         self.stop_button.config(state='disabled')
         self.status_label.config(text="Status: Not monitoring")
 
+    def update_status(self, message):
+        self.status_label.config(text=f"Status: {message}")
+
 
 # Handler for prcoessing file system events
 class DownloadEventHandler(FileSystemEventHandler):
 
-    def __init__(self):
+    def __init__(self, status_callback):
         super().__init__()
+        self.status_callback = status_callback
         self.TARGET_DIRS = {}
 
     def set_target_dirs(self, base_dir):
@@ -115,19 +119,18 @@ class DownloadEventHandler(FileSystemEventHandler):
         
         
     # Function to move file with retry mechanism to prevent errors when the file is being used by another process
-    @staticmethod
-    def move_file_with_retry(src_path, dest_path, retries=5, delay=1):
+    def move_file_with_retry(self, src_path, dest_path, retries=5, delay=1):
         for i in range(retries):
             try:
                 shutil.move(src_path, dest_path)
-                print(f"Moved: {src_path} to {dest_path}")
+                self.status_callback(f"Moved: {os.path.basename(src_path)} to {dest_path}")
                 return True
             except PermissionError:
-                print(f"PermissionError: Retrying in {delay} seconds... ({i+1}/{retries})")
+                self.status_callback(f"PermissionError: Retrying in {delay} seconds... ({i+1}/{retries})")
                 time.sleep(delay)
-        print(f"Failed to move: {src_path}")
+        self.status_callback(f"Failed to move: {os.path.basename(src_path)}")
         return False
-    
+
     def on_created(self, event):
         if not event.is_directory:
             file_path = event.src_path
