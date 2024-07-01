@@ -72,6 +72,7 @@ class FileOrganizer:
         self.general_menu = Menu(self.menu_bar, tearoff=0)
         self.general_menu.add_command(label="Select Room", command=self.select_room)
         self.general_menu.add_command(label="Organize Now", command=self.organize_now)
+        self.general_menu.add_command(label="Undo", command=self.undo)
         self.general_menu.add_command(label="Options", command=self.open_options)
         self.general_menu.add_separator()
         self.general_menu.add_command(label="Exit", command=root.destroy)
@@ -90,6 +91,7 @@ class FileOrganizer:
 
         master.config(menu=self.menu_bar)
 
+        self.file_movements = []  # Stack to store file movements for undo functionality
         self.observer = None
 
     # 
@@ -189,6 +191,22 @@ class FileOrganizer:
                 self.move_file_with_retry(file_path, target_path)
         self.update_status("Organization complete!")
 
+    #
+    def undo(self):
+        if not self.file_movements:
+            self.update_status("No actions to undo")
+            return
+        
+        src_path, dest_path = self.file_movements.pop()
+        try:
+            shutil.move(dest_path, src_path)
+            self.update_status(f"Undone: {os.path.basename(dest_path)} moved back to {src_path}")
+        except Exception as e:
+            self.update_status(f"Failed to undo: {e}")
+        
+        # if not self.file_movements:
+        #     self.undo_button.config(state='disabled')
+    #
     def get_file_type(self, file_path):
         ext = os.path.splitext(file_path)[1].lower()
         if ext in ['.jpg', '.jpeg', '.png', '.gif', '.svg']:
@@ -211,7 +229,9 @@ class FileOrganizer:
         for i in range(retries):
             try:
                 shutil.move(src_path, dest_path)
+                self.file_movements.append((src_path, dest_path))  # Record the movement
                 self.update_status(f"Moved: {os.path.basename(src_path)} to {dest_path}")
+                self.undo_button.config(state='normal')
                 return True
             except PermissionError:
                 self.update_status(f"PermissionError: Retrying in {delay} seconds... ({i+1}/{retries})")
@@ -264,10 +284,11 @@ class FileOrganizer:
 
 #
 class DownloadEventHandler(FileSystemEventHandler):
-    def __init__(self, status_callback, target_dirs):
+    def __init__(self, status_callback, target_dirs, file_movements):
         super().__init__()
         self.status_callback = status_callback
         self.TARGET_DIRS = {key: var.get() for key, var in target_dirs.items()}
+        self.file_movements = file_movements
         for path in self.TARGET_DIRS.values():
             os.makedirs(path, exist_ok=True)
 
@@ -295,6 +316,7 @@ class DownloadEventHandler(FileSystemEventHandler):
         for i in range(retries):
             try:
                 shutil.move(src_path, dest_path)
+                self.file_movements.append((src_path, dest_path))  # Record the movement
                 self.status_callback(f"Moved: {os.path.basename(src_path)} to {dest_path}")
                 return True
             except PermissionError:
