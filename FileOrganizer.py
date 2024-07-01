@@ -4,7 +4,7 @@ import shutil
 import threading
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-from tkinter import Tk, Label, Button, Entry, filedialog, messagebox, StringVar, Toplevel, Frame
+from tkinter import Tk, Label, Button, Entry, filedialog, messagebox, StringVar, Toplevel, Frame, scrolledtext
 from tkinter import ttk
 
 class FileOrganizer:
@@ -25,6 +25,9 @@ class FileOrganizer:
             "documents": StringVar(value=os.path.expanduser("~/Downloads/Documents")),
             "others": StringVar(value=os.path.expanduser("~/Downloads/Others"))
         }
+
+        # load saved settings
+        self.load_settings()
 
         main_frame = ttk.Frame(master, padding="10 10 10 10")
         main_frame.pack(fill="both", expand=True)
@@ -50,6 +53,12 @@ class FileOrganizer:
         self.status_label = ttk.Label(main_frame, text="Status: Not monitoring")
         self.status_label.grid(column=0, row=2, columnspan=3, sticky="W", padx=5, pady=5)
 
+        self.status_text = scrolledtext.ScrolledText(main_frame, wrap='word', height=10, state='disabled')
+        self.status_text.grid(column=0, row=3, columnspan=3, sticky="WE", padx=5, pady=5)
+
+        self.progress = ttk.Progressbar(main_frame, orient='horizontal', mode='indeterminate')
+        self.progress.grid(column=0, row=4, columnspan=3, sticky="WE", padx=5, pady=5)
+
         self.observer = None
 
     def browse_directory(self):
@@ -68,19 +77,32 @@ class FileOrganizer:
         ttk.Entry(options_frame, textvariable=self.target_dirs["images"], width=50).grid(column=1, row=0, sticky="W", padx=5, pady=5)
         ttk.Button(options_frame, text="Browse", command=lambda: self.browse_target_directory("images")).grid(column=2, row=0, sticky="W", padx=5, pady=5)
 
-        ttk.Label(options_frame, text="Documents Directory:").grid(column=0, row=1, sticky="W", padx=5, pady=5)
-        ttk.Entry(options_frame, textvariable=self.target_dirs["documents"], width=50).grid(column=1, row=1, sticky="W", padx=5, pady=5)
-        ttk.Button(options_frame, text="Browse", command=lambda: self.browse_target_directory("documents")).grid(column=2, row=1, sticky="W", padx=5, pady=5)
+        ttk.Label(options_frame, text="Music Directory:").grid(column=0, row=1, sticky="W", padx=5, pady=5)
+        ttk.Entry(options_frame, textvariable=self.target_dirs["music"], width=50).grid(column=1, row=1, sticky="W", padx=5, pady=5)
+        ttk.Button(options_frame, text="Browse", command=lambda: self.browse_target_directory("music")).grid(column=2, row=1, sticky="W", padx=5, pady=5)
 
         ttk.Label(options_frame, text="Videos Directory:").grid(column=0, row=2, sticky="W", padx=5, pady=5)
         ttk.Entry(options_frame, textvariable=self.target_dirs["videos"], width=50).grid(column=1, row=2, sticky="W", padx=5, pady=5)
         ttk.Button(options_frame, text="Browse", command=lambda: self.browse_target_directory("videos")).grid(column=2, row=2, sticky="W", padx=5, pady=5)
 
-        ttk.Label(options_frame, text="Others Directory:").grid(column=0, row=3, sticky="W", padx=5, pady=5)
-        ttk.Entry(options_frame, textvariable=self.target_dirs["others"], width=50).grid(column=1, row=3, sticky="W", padx=5, pady=5)
-        ttk.Button(options_frame, text="Browse", command=lambda: self.browse_target_directory("others")).grid(column=2, row=3, sticky="W", padx=5, pady=5)
+        ttk.Label(options_frame, text="Programs Directory:").grid(column=0, row=3, sticky="W", padx=5, pady=5)
+        ttk.Entry(options_frame, textvariable=self.target_dirs["programs"], width=50).grid(column=1, row=3, sticky="W", padx=5, pady=5)
+        ttk.Button(options_frame, text="Browse", command=lambda: self.browse_target_directory("programs")).grid(column=2, row=3, sticky="W", padx=5, pady=5)
 
-        ttk.Button(options_frame, text="Save", command=options_window.destroy).grid(column=0, row=4, columnspan=3, pady=10)
+        ttk.Label(options_frame, text="Compressed Directory:").grid(column=0, row=4, sticky="W", padx=5, pady=5)
+        ttk.Entry(options_frame, textvariable=self.target_dirs["compressed"], width=50).grid(column=1, row=4, sticky="W", padx=5, pady=5)
+        ttk.Button(options_frame, text="Browse", command=lambda: self.browse_target_directory("compressed")).grid(column=2, row=4, sticky="W", padx=5, pady=5)
+
+        ttk.Label(options_frame, text="Documents Directory:").grid(column=0, row=5, sticky="W", padx=5, pady=5)
+        ttk.Entry(options_frame, textvariable=self.target_dirs["documents"], width=50).grid(column=1, row=5, sticky="W", padx=5, pady=5)
+        ttk.Button(options_frame, text="Browse", command=lambda: self.browse_target_directory("documents")).grid(column=2, row=5, sticky="W", padx=5, pady=5)
+
+        ttk.Label(options_frame, text="Others Directory:").grid(column=0, row=6, sticky="W", padx=5, pady=5)
+        ttk.Entry(options_frame, textvariable=self.target_dirs["others"], width=50).grid(column=1, row=6, sticky="W", padx=5, pady=5)
+        ttk.Button(options_frame, text="Browse", command=lambda: self.browse_target_directory("others")).grid(column=2, row=6, sticky="W", padx=5, pady=5)
+
+        ttk.Button(options_frame, text="Save", command=self.save_settings).grid(column=0, row=7, columnspan=3, pady=10)
+
 
     def browse_target_directory(self, key):
         directory = filedialog.askdirectory(initialdir=self.target_dirs[key].get())
@@ -103,6 +125,7 @@ class FileOrganizer:
         self.start_button.config(state='disabled')
         self.stop_button.config(state='normal')
         self.update_status(f"Monitoring {self.downloads_dir_path}")
+        self.progress.start()
 
     def stop_monitoring(self):
         if self.observer:
@@ -113,9 +136,31 @@ class FileOrganizer:
         self.start_button.config(state='normal')
         self.stop_button.config(state='disabled')
         self.update_status("Not monitoring")
+        self.progress.stop()
 
     def update_status(self, message):
         self.status_label.config(text=f"Status: {message}")
+        self.status_text.config(state='normal')
+        self.status_text.insert('end', f"{message}\n")
+        self.status_text.config(state='disabled')
+        self.status_text.yview('end')
+
+    def save_settings(self):
+        settings = {
+            "downloads_dir": self.downloads_dir.get(),
+            "target_dirs": {key: var.get() for key, var in self.target_dirs.items()}
+        }
+        with open("settings.json", "w") as f:
+            json.dump(settings, f)
+        messagebox.showinfo("Settings", "Settings saved successfully!")
+
+    def load_settings(self):
+        if os.path.exists("settings.json"):
+            with open("settings.json", "r") as f:
+                settings = json.load(f)
+                self.downloads_dir.set(settings.get("downloads_dir", os.path.expanduser("~/Downloads")))
+                for key, value in settings.get("target_dirs", {}).items():
+                    self.target_dirs[key].set(value)
 
 class DownloadEventHandler(FileSystemEventHandler):
     def __init__(self, status_callback, target_dirs):
