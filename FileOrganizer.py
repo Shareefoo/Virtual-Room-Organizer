@@ -52,14 +52,17 @@ class FileOrganizer:
         self.stop_button = ttk.Button(main_frame, text="Stop Monitoring", command=self.stop_monitoring, state='disabled')
         self.stop_button.grid(column=2, row=1, sticky="W", padx=5, pady=5)
 
+        self.organize_now_button = ttk.Button(main_frame, text="Organize Now", command=self.organize_now)
+        self.organize_now_button.grid(column=0, row=2, columnspan=3, sticky="W", padx=5, pady=5)
+
         self.status_label = ttk.Label(main_frame, text="Status: Not monitoring")
-        self.status_label.grid(column=0, row=2, columnspan=3, sticky="W", padx=5, pady=5)
+        self.status_label.grid(column=0, row=3, columnspan=3, sticky="W", padx=5, pady=5)
 
         self.status_text = scrolledtext.ScrolledText(main_frame, wrap='word', height=10, state='disabled')
-        self.status_text.grid(column=0, row=3, columnspan=3, sticky="WE", padx=5, pady=5)
+        self.status_text.grid(column=0, row=4, columnspan=3, sticky="WE", padx=5, pady=5)
 
         self.progress = ttk.Progressbar(main_frame, orient='horizontal', mode='indeterminate')
-        self.progress.grid(column=0, row=4, columnspan=3, sticky="WE", padx=5, pady=5)
+        self.progress.grid(column=0, row=5, columnspan=3, sticky="WE", padx=5, pady=5)
 
         self.dark_mode = False
 
@@ -71,11 +74,13 @@ class FileOrganizer:
 
         self.observer = None
 
+    # 
     def browse_directory(self):
         directory = filedialog.askdirectory(initialdir=self.downloads_dir.get())
         if directory:
             self.downloads_dir.set(directory)
 
+    #
     def open_options(self):
         options_window = Toplevel(self.master)
         options_window.title("Options")
@@ -113,12 +118,13 @@ class FileOrganizer:
 
         ttk.Button(options_frame, text="Save", command=self.save_settings).grid(column=0, row=7, columnspan=3, pady=10)
 
-
+    #
     def browse_target_directory(self, key):
         directory = filedialog.askdirectory(initialdir=self.target_dirs[key].get())
         if directory:
             self.target_dirs[key].set(directory)
 
+    #
     def start_monitoring(self):
         self.downloads_dir_path = self.downloads_dir.get()
         if not os.path.exists(self.downloads_dir_path):
@@ -137,6 +143,7 @@ class FileOrganizer:
         self.update_status(f"Monitoring {self.downloads_dir_path}")
         self.progress.start()
 
+    #
     def stop_monitoring(self):
         if self.observer:
             self.observer.stop()
@@ -148,6 +155,53 @@ class FileOrganizer:
         self.update_status("Not monitoring")
         self.progress.stop()
 
+    #
+    def organize_now(self):
+        self.downloads_dir_path = self.downloads_dir.get()
+        if not os.path.exists(self.downloads_dir_path):
+            messagebox.showerror("Error", "The specified directory does not exist.")
+            return
+
+        self.update_status("Organizing files...")
+        for filename in os.listdir(self.downloads_dir_path):
+            file_path = os.path.join(self.downloads_dir_path, filename)
+            if os.path.isfile(file_path):
+                file_type = self.get_file_type(file_path)
+                target_path = os.path.join(self.target_dirs[file_type].get(), filename)
+                self.move_file_with_retry(file_path, target_path)
+        self.update_status("Organization complete!")
+
+    def get_file_type(self, file_path):
+        ext = os.path.splitext(file_path)[1].lower()
+        if ext in ['.jpg', '.jpeg', '.png', '.gif', '.svg']:
+            return "images"
+        elif ext in ['.mp3']:
+            return "music"
+        elif ext in ['.mp4', '.mov', '.avi']:
+            return "videos"
+        elif ext in ['.exe', '.msi']:
+            return "programs"
+        elif ext in ['.rar', '.zip']:
+            return "compressed"
+        elif ext in ['.txt', '.pdf', '.docx', '.pptx', '.xlsx']:
+            return "documents"
+        else:
+            return "others"
+
+    #
+    def move_file_with_retry(self, src_path, dest_path, retries=5, delay=1):
+        for i in range(retries):
+            try:
+                shutil.move(src_path, dest_path)
+                self.update_status(f"Moved: {os.path.basename(src_path)} to {dest_path}")
+                return True
+            except PermissionError:
+                self.update_status(f"PermissionError: Retrying in {delay} seconds... ({i+1}/{retries})")
+                time.sleep(delay)
+        self.update_status(f"Failed to move: {os.path.basename(src_path)}")
+        return False
+
+    #
     def update_status(self, message):
         self.status_label.config(text=f"Status: {message}")
         self.status_text.config(state='normal')
@@ -155,6 +209,7 @@ class FileOrganizer:
         self.status_text.config(state='disabled')
         self.status_text.yview('end')
 
+    #
     def save_settings(self):
         settings = {
             "downloads_dir": self.downloads_dir.get(),
@@ -164,6 +219,7 @@ class FileOrganizer:
             json.dump(settings, f)
         messagebox.showinfo("Settings", "Settings saved successfully!")
 
+    #
     def load_settings(self):
         if os.path.exists("settings.json"):
             with open("settings.json", "r") as f:
@@ -171,11 +227,13 @@ class FileOrganizer:
                 self.downloads_dir.set(settings.get("downloads_dir", os.path.expanduser("~/Downloads")))
                 for key, value in settings.get("target_dirs", {}).items():
                     self.target_dirs[key].set(value)
-
+    
+    #
     def toggle_dark_mode(self):
         self.dark_mode = not self.dark_mode
         self.apply_theme()
 
+    #
     def apply_theme(self):
         if self.dark_mode:
             self.master.style.theme_use('equilux')  # A dark theme available via ttkthemes
@@ -186,6 +244,7 @@ class FileOrganizer:
             self.master.configure(bg='SystemButtonFace')
             self.status_text.configure(bg='white', fg='black', insertbackground='black')
 
+#
 class DownloadEventHandler(FileSystemEventHandler):
     def __init__(self, status_callback, target_dirs):
         super().__init__()
@@ -194,6 +253,7 @@ class DownloadEventHandler(FileSystemEventHandler):
         for path in self.TARGET_DIRS.values():
             os.makedirs(path, exist_ok=True)
 
+    #
     @staticmethod
     def get_file_type(file_path):
         ext = os.path.splitext(file_path)[1].lower()
@@ -212,6 +272,7 @@ class DownloadEventHandler(FileSystemEventHandler):
         else:
             return "others"
 
+    #
     def move_file_with_retry(self, src_path, dest_path, retries=5, delay=1):
         for i in range(retries):
             try:
@@ -224,6 +285,7 @@ class DownloadEventHandler(FileSystemEventHandler):
         self.status_callback(f"Failed to move: {os.path.basename(src_path)}")
         return False
 
+    #
     def on_created(self, event):
         if not event.is_directory:
             file_path = event.src_path
