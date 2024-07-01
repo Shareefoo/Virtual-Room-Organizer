@@ -2,10 +2,12 @@ import os
 import time
 import shutil
 import threading
+import json
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from tkinter import Tk, Label, Button, Entry, filedialog, messagebox, StringVar, Toplevel, Frame, scrolledtext
-from tkinter import ttk
+from tkinter import ttk, Menu
+from ttkthemes import ThemedTk  # pip install ttkthemes
 
 class FileOrganizer:
     def __init__(self, master):
@@ -58,6 +60,14 @@ class FileOrganizer:
 
         self.progress = ttk.Progressbar(main_frame, orient='horizontal', mode='indeterminate')
         self.progress.grid(column=0, row=4, columnspan=3, sticky="WE", padx=5, pady=5)
+
+        self.dark_mode = False
+
+        self.menu_bar = Menu(master)
+        self.theme_menu = Menu(self.menu_bar, tearoff=0)
+        self.theme_menu.add_command(label="Toggle Dark Mode", command=self.toggle_dark_mode)
+        self.menu_bar.add_cascade(label="Theme", menu=self.theme_menu)
+        master.config(menu=self.menu_bar)
 
         self.observer = None
 
@@ -162,6 +172,20 @@ class FileOrganizer:
                 for key, value in settings.get("target_dirs", {}).items():
                     self.target_dirs[key].set(value)
 
+    def toggle_dark_mode(self):
+        self.dark_mode = not self.dark_mode
+        self.apply_theme()
+
+    def apply_theme(self):
+        if self.dark_mode:
+            self.master.style.theme_use('equilux')  # A dark theme available via ttkthemes
+            self.master.configure(bg='#333333')
+            self.status_text.configure(bg='#333333', fg='white', insertbackground='white')
+        else:
+            self.master.style.theme_use('clam')
+            self.master.configure(bg='SystemButtonFace')
+            self.status_text.configure(bg='white', fg='black', insertbackground='black')
+
 class DownloadEventHandler(FileSystemEventHandler):
     def __init__(self, status_callback, target_dirs):
         super().__init__()
@@ -208,9 +232,8 @@ class DownloadEventHandler(FileSystemEventHandler):
             self.move_file_with_retry(file_path, target_path)
 
 if __name__ == "__main__":
-    root = Tk()
+    root = ThemedTk(theme="clam")  # Use ThemedTk for better theming options
     root.style = ttk.Style()
-    root.style.theme_use('clam')  # You can try other themes such as 'default', 'classic', 'clam', 'alt', 'vista', 'xpnative'
-
+    root.style.theme_use('clam')  # Initial theme
     file_organizer = FileOrganizer(root)
     root.mainloop()
