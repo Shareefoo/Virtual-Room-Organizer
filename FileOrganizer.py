@@ -12,7 +12,7 @@ from ttkthemes import ThemedTk  # pip install ttkthemes
 class FileOrganizer:
     def __init__(self, master):
         self.master = master
-        master.title("File Organizer")
+        master.title("Room Organizer")
 
         # Define the directory to be monitored
         self.downloads_dir = StringVar(value=os.path.expanduser("~/Downloads"))
@@ -34,51 +34,69 @@ class FileOrganizer:
         main_frame = ttk.Frame(master, padding="10 10 10 10")
         main_frame.pack(fill="both", expand=True)
 
-        self.label = ttk.Label(main_frame, text="Downloads Directory:")
+        self.label = ttk.Label(main_frame, text="Room:")
         self.label.grid(column=0, row=0, sticky="W", padx=5, pady=5)
 
-        self.downloads_entry = ttk.Entry(main_frame, textvariable=self.downloads_dir, width=50)
-        self.downloads_entry.grid(column=1, row=0, sticky="W", padx=5, pady=5)
+        self.room_entry = ttk.Entry(main_frame, textvariable=self.downloads_dir, width=50)
+        self.room_entry.grid(column=1, row=0, sticky="W", padx=5, pady=5)
 
-        self.browse_button = ttk.Button(main_frame, text="Browse", command=self.browse_directory)
+        self.browse_button = ttk.Button(main_frame, text="Select Room", command=self.select_room)
         self.browse_button.grid(column=2, row=0, sticky="W", padx=5, pady=5)
 
-        self.options_button = ttk.Button(main_frame, text="Options", command=self.open_options)
-        self.options_button.grid(column=0, row=1, sticky="W", padx=5, pady=5)
+        # self.options_button = ttk.Button(main_frame, text="Options", command=self.open_options)
+        # self.options_button.grid(column=0, row=1, sticky="W", padx=5, pady=5)
 
-        self.start_button = ttk.Button(main_frame, text="Start Monitoring", command=self.start_monitoring)
-        self.start_button.grid(column=1, row=1, sticky="W", padx=5, pady=5)
+        # self.start_button = ttk.Button(main_frame, text="Start Monitoring", command=self.start_monitoring)
+        # self.start_button.grid(column=1, row=1, sticky="W", padx=5, pady=5)
 
-        self.stop_button = ttk.Button(main_frame, text="Stop Monitoring", command=self.stop_monitoring, state='disabled')
-        self.stop_button.grid(column=2, row=1, sticky="W", padx=5, pady=5)
+        # self.stop_button = ttk.Button(main_frame, text="Stop Monitoring", command=self.stop_monitoring, state='disabled')
+        # self.stop_button.grid(column=2, row=1, sticky="W", padx=5, pady=5)
 
-        self.organize_now_button = ttk.Button(main_frame, text="Organize Now", command=self.organize_now)
-        self.organize_now_button.grid(column=0, row=2, columnspan=3, sticky="W", padx=5, pady=5)
+        # self.organize_now_button = ttk.Button(main_frame, text="Organize Now", command=self.organize_now)
+        # self.organize_now_button.grid(column=0, row=2, columnspan=3, sticky="W", padx=5, pady=5)
 
         self.status_label = ttk.Label(main_frame, text="Status: Not monitoring")
-        self.status_label.grid(column=0, row=3, columnspan=3, sticky="W", padx=5, pady=5)
+        self.status_label.grid(column=0, row=1, columnspan=3, sticky="W", padx=5, pady=5)
 
         self.status_text = scrolledtext.ScrolledText(main_frame, wrap='word', height=10, state='disabled')
-        self.status_text.grid(column=0, row=4, columnspan=3, sticky="WE", padx=5, pady=5)
+        self.status_text.grid(column=0, row=2, columnspan=3, sticky="WE", padx=5, pady=5)
 
         self.progress = ttk.Progressbar(main_frame, orient='horizontal', mode='indeterminate')
-        self.progress.grid(column=0, row=5, columnspan=3, sticky="WE", padx=5, pady=5)
+        self.progress.grid(column=0, row=3, columnspan=3, sticky="WE", padx=5, pady=5)
 
         self.dark_mode = False
 
         self.menu_bar = Menu(master)
-        self.theme_menu = Menu(self.menu_bar, tearoff=0)
-        self.theme_menu.add_command(label="Toggle Dark Mode", command=self.toggle_dark_mode)
-        self.menu_bar.add_cascade(label="Theme", menu=self.theme_menu)
+
+        # General Menu
+        self.general_menu = Menu(self.menu_bar, tearoff=0)
+        self.general_menu.add_command(label="Select Room", command=self.select_room)
+        self.general_menu.add_command(label="Organize Now", command=self.organize_now)
+        self.general_menu.add_command(label="Options", command=self.open_options)
+        self.general_menu.add_separator()
+        self.general_menu.add_command(label="Exit", command=root.destroy)
+        self.menu_bar.add_cascade(label="General", menu=self.general_menu)
+
+        # Monitoring Menu
+        self.monitoring_menu = Menu(self.menu_bar, tearoff=0)
+        self.monitoring_menu.add_command(label="Start Monitoring", command=self.start_monitoring)
+        self.monitoring_menu.add_command(label="Stop Monitoring", command=self.stop_monitoring)
+        self.menu_bar.add_cascade(label="Monitoring", menu=self.monitoring_menu)
+
+        # View Menu
+        self.view_menu = Menu(self.menu_bar, tearoff=0)
+        self.view_menu.add_command(label="Switch Theme", command=self.switch_theme)
+        self.menu_bar.add_cascade(label="View", menu=self.view_menu)
+
         master.config(menu=self.menu_bar)
 
         self.observer = None
 
     # 
-    def browse_directory(self):
-        directory = filedialog.askdirectory(initialdir=self.downloads_dir.get())
-        if directory:
-            self.downloads_dir.set(directory)
+    def select_room(self):
+        room = filedialog.askdirectory(initialdir=self.downloads_dir.get())
+        if room:
+            self.downloads_dir.set(room)
 
     #
     def open_options(self):
@@ -138,8 +156,8 @@ class FileOrganizer:
         self.observer_thread = threading.Thread(target=self.observer.start)
         self.observer_thread.start()
 
-        self.start_button.config(state='disabled')
-        self.stop_button.config(state='normal')
+        # self.start_button.config(state='disabled')
+        # self.stop_button.config(state='normal')
         self.update_status(f"Monitoring {self.downloads_dir_path}")
         self.progress.start()
 
@@ -150,8 +168,8 @@ class FileOrganizer:
             self.observer.join()
             self.observer = None
 
-        self.start_button.config(state='normal')
-        self.stop_button.config(state='disabled')
+        # self.start_button.config(state='normal')
+        # self.stop_button.config(state='disabled')
         self.update_status("Not monitoring")
         self.progress.stop()
 
@@ -229,7 +247,7 @@ class FileOrganizer:
                     self.target_dirs[key].set(value)
     
     #
-    def toggle_dark_mode(self):
+    def switch_theme(self):
         self.dark_mode = not self.dark_mode
         self.apply_theme()
 
