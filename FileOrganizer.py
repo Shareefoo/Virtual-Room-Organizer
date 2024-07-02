@@ -185,9 +185,10 @@ class FileOrganizer:
             self.update_status(f"Undone: {os.path.basename(dest_path)} moved back to {src_path}")
         except Exception as e:
             self.update_status(f"Failed to undo: {e}")
-        
+
     #
-    def get_file_type(self, file_path):
+    @staticmethod    
+    def get_file_type(file_path):
         ext = os.path.splitext(file_path)[1].lower()
         if ext in ['.jpg', '.jpeg', '.png', '.gif', '.svg']:
             return "images"
@@ -205,17 +206,22 @@ class FileOrganizer:
             return "others"
 
     #
-    def move_file_with_retry(self, src_path, dest_path, retries=5, delay=1):
+    @staticmethod
+    def move_file_with_retry(src_path, dest_path, retries=5, delay=1, file_movements=None, status_callback=None):
         for i in range(retries):
             try:
                 shutil.move(src_path, dest_path)
-                self.file_movements.append((src_path, dest_path))  # Record the movement
-                self.update_status(f"Moved: {os.path.basename(src_path)} to {dest_path}")
+                if file_movements is not None:
+                    file_movements.append((src_path, dest_path))  # Record the movement
+                if status_callback is not None:
+                    status_callback(f"Moved: {os.path.basename(src_path)} to {dest_path}")
                 return True
             except PermissionError:
-                self.update_status(f"PermissionError: Retrying in {delay} seconds... ({i+1}/{retries})")
+                if status_callback is not None:
+                    status_callback(f"PermissionError: Retrying in {delay} seconds... ({i+1}/{retries})")
                 time.sleep(delay)
-        self.update_status(f"Failed to move: {os.path.basename(src_path)}")
+        if status_callback is not None:
+            status_callback(f"Failed to move: {os.path.basename(src_path)}")
         return False
 
     #
@@ -271,45 +277,13 @@ class DownloadEventHandler(FileSystemEventHandler):
         for path in self.TARGET_DIRS.values():
             os.makedirs(path, exist_ok=True)
 
-    #
-    def get_file_type(file_path):
-        ext = os.path.splitext(file_path)[1].lower()
-        if ext in ['.jpg', '.jpeg', '.png', '.gif', '.svg']:
-            return "images"
-        elif ext in ['.mp3']:
-            return "music"
-        elif ext in ['.mp4', '.mov', '.avi']:
-            return "videos"
-        elif ext in ['.exe', '.msi']:
-            return "programs"
-        elif ext in ['.rar', '.zip']:
-            return "compressed"
-        elif ext in ['.txt', '.pdf', '.docx', '.pptx', '.xlsx']:
-            return "documents"
-        else:
-            return "others"
-
-    #
-    def move_file_with_retry(self, src_path, dest_path, retries=5, delay=1):
-        for i in range(retries):
-            try:
-                shutil.move(src_path, dest_path)
-                self.file_movements.append((src_path, dest_path))  # Record the movement
-                self.status_callback(f"Moved: {os.path.basename(src_path)} to {dest_path}")
-                return True
-            except PermissionError:
-                self.status_callback(f"PermissionError: Retrying in {delay} seconds... ({i+1}/{retries})")
-                time.sleep(delay)
-        self.status_callback(f"Failed to move: {os.path.basename(src_path)}")
-        return False
-
-    #
     def on_created(self, event):
         if not event.is_directory:
             file_path = event.src_path
-            file_type = self.get_file_type(file_path)
+            file_type = FileOrganizer.get_file_type(file_path)
             target_path = os.path.join(self.TARGET_DIRS[file_type], os.path.basename(file_path))
-            self.move_file_with_retry(file_path, target_path)
+            FileOrganizer.move_file_with_retry(file_path, target_path)
+
 
 if __name__ == "__main__":
     root = ThemedTk(theme="clam")  # Use ThemedTk for better theming options
