@@ -10,6 +10,7 @@ from tkinter import ttk, Menu
 from ttkthemes import ThemedTk  # pip install ttkthemes
 
 class FileOrganizer:
+
     def __init__(self, master):
         self.master = master
         master.title("Room Organizer")
@@ -30,30 +31,26 @@ class FileOrganizer:
 
         # load saved settings
         self.load_settings()
+        self.create_widgets()
+        self.file_movements = []  # Stack to store file movements for undo functionality
+        self.observer = None
+        self.dark_mode = False
 
-        main_frame = ttk.Frame(master, padding="10 10 10 10")
+
+    def create_widgets(self):
+        main_frame = ttk.Frame(self.master, padding="10 10 10 10")
         main_frame.pack(fill="both", expand=True)
 
-        self.label = ttk.Label(main_frame, text="Room:")
-        self.label.grid(column=0, row=0, sticky="W", padx=5, pady=5)
+        self.create_label_entry_button(main_frame, "Room:", self.downloads_dir, self.select_room, 0)
+        
+        # self.label = ttk.Label(main_frame, text="Room:")
+        # self.label.grid(column=0, row=0, sticky="W", padx=5, pady=5)
 
-        self.room_entry = ttk.Entry(main_frame, textvariable=self.downloads_dir, width=50)
-        self.room_entry.grid(column=1, row=0, sticky="W", padx=5, pady=5)
+        # self.room_entry = ttk.Entry(main_frame, textvariable=self.downloads_dir, width=50)
+        # self.room_entry.grid(column=1, row=0, sticky="W", padx=5, pady=5)
 
-        self.browse_button = ttk.Button(main_frame, text="Select Room", command=self.select_room)
-        self.browse_button.grid(column=2, row=0, sticky="W", padx=5, pady=5)
-
-        # self.options_button = ttk.Button(main_frame, text="Options", command=self.open_options)
-        # self.options_button.grid(column=0, row=1, sticky="W", padx=5, pady=5)
-
-        # self.start_button = ttk.Button(main_frame, text="Start Monitoring", command=self.start_monitoring)
-        # self.start_button.grid(column=1, row=1, sticky="W", padx=5, pady=5)
-
-        # self.stop_button = ttk.Button(main_frame, text="Stop Monitoring", command=self.stop_monitoring, state='disabled')
-        # self.stop_button.grid(column=2, row=1, sticky="W", padx=5, pady=5)
-
-        # self.organize_now_button = ttk.Button(main_frame, text="Organize Now", command=self.organize_now)
-        # self.organize_now_button.grid(column=0, row=2, columnspan=3, sticky="W", padx=5, pady=5)
+        # self.browse_button = ttk.Button(main_frame, text="Select Room", command=self.select_room)
+        # self.browse_button.grid(column=2, row=0, sticky="W", padx=5, pady=5)
 
         self.status_label = ttk.Label(main_frame, text="Status: Not monitoring")
         self.status_label.grid(column=0, row=1, columnspan=3, sticky="W", padx=5, pady=5)
@@ -64,9 +61,17 @@ class FileOrganizer:
         self.progress = ttk.Progressbar(main_frame, orient='horizontal', mode='indeterminate')
         self.progress.grid(column=0, row=3, columnspan=3, sticky="WE", padx=5, pady=5)
 
-        self.dark_mode = False
+        self.create_menu()
 
-        self.menu_bar = Menu(master)
+
+    def create_label_entry_button(self, parent, label_text, text_var, command, row):
+        ttk.Label(parent, text=label_text).grid(column=0, row=row, sticky="W", padx=5, pady=5)
+        ttk.Entry(parent, textvariable=text_var, width=50).grid(column=1, row=row, sticky="W", padx=5, pady=5)
+        ttk.Button(parent, text="Browse", command=command).grid(column=2, row=row, sticky="W", padx=5, pady=5)
+
+
+    def create_menu(self):
+        self.menu_bar = Menu(self.master)
 
         # General Menu
         self.general_menu = Menu(self.menu_bar, tearoff=0)
@@ -89,10 +94,8 @@ class FileOrganizer:
         self.view_menu.add_command(label="Switch Theme", command=self.switch_theme)
         self.menu_bar.add_cascade(label="View", menu=self.view_menu)
 
-        master.config(menu=self.menu_bar)
+        self.master.config(menu=self.menu_bar)
 
-        self.file_movements = []  # Stack to store file movements for undo functionality
-        self.observer = None
 
     # 
     def select_room(self):
@@ -108,33 +111,14 @@ class FileOrganizer:
         options_frame = ttk.Frame(options_window, padding="10 10 10 10")
         options_frame.pack(fill="both", expand=True)
 
-        ttk.Label(options_frame, text="Images Directory:").grid(column=0, row=0, sticky="W", padx=5, pady=5)
-        ttk.Entry(options_frame, textvariable=self.target_dirs["images"], width=50).grid(column=1, row=0, sticky="W", padx=5, pady=5)
-        ttk.Button(options_frame, text="Browse", command=lambda: self.browse_target_directory("images")).grid(column=2, row=0, sticky="W", padx=5, pady=5)
-
-        ttk.Label(options_frame, text="Music Directory:").grid(column=0, row=1, sticky="W", padx=5, pady=5)
-        ttk.Entry(options_frame, textvariable=self.target_dirs["music"], width=50).grid(column=1, row=1, sticky="W", padx=5, pady=5)
-        ttk.Button(options_frame, text="Browse", command=lambda: self.browse_target_directory("music")).grid(column=2, row=1, sticky="W", padx=5, pady=5)
-
-        ttk.Label(options_frame, text="Videos Directory:").grid(column=0, row=2, sticky="W", padx=5, pady=5)
-        ttk.Entry(options_frame, textvariable=self.target_dirs["videos"], width=50).grid(column=1, row=2, sticky="W", padx=5, pady=5)
-        ttk.Button(options_frame, text="Browse", command=lambda: self.browse_target_directory("videos")).grid(column=2, row=2, sticky="W", padx=5, pady=5)
-
-        ttk.Label(options_frame, text="Programs Directory:").grid(column=0, row=3, sticky="W", padx=5, pady=5)
-        ttk.Entry(options_frame, textvariable=self.target_dirs["programs"], width=50).grid(column=1, row=3, sticky="W", padx=5, pady=5)
-        ttk.Button(options_frame, text="Browse", command=lambda: self.browse_target_directory("programs")).grid(column=2, row=3, sticky="W", padx=5, pady=5)
-
-        ttk.Label(options_frame, text="Compressed Directory:").grid(column=0, row=4, sticky="W", padx=5, pady=5)
-        ttk.Entry(options_frame, textvariable=self.target_dirs["compressed"], width=50).grid(column=1, row=4, sticky="W", padx=5, pady=5)
-        ttk.Button(options_frame, text="Browse", command=lambda: self.browse_target_directory("compressed")).grid(column=2, row=4, sticky="W", padx=5, pady=5)
-
-        ttk.Label(options_frame, text="Documents Directory:").grid(column=0, row=5, sticky="W", padx=5, pady=5)
-        ttk.Entry(options_frame, textvariable=self.target_dirs["documents"], width=50).grid(column=1, row=5, sticky="W", padx=5, pady=5)
-        ttk.Button(options_frame, text="Browse", command=lambda: self.browse_target_directory("documents")).grid(column=2, row=5, sticky="W", padx=5, pady=5)
-
-        ttk.Label(options_frame, text="Others Directory:").grid(column=0, row=6, sticky="W", padx=5, pady=5)
-        ttk.Entry(options_frame, textvariable=self.target_dirs["others"], width=50).grid(column=1, row=6, sticky="W", padx=5, pady=5)
-        ttk.Button(options_frame, text="Browse", command=lambda: self.browse_target_directory("others")).grid(column=2, row=6, sticky="W", padx=5, pady=5)
+        for key, text in [("images", "Images Directory:"), 
+                          ("music", "Music Directory:"),                             
+                          ("videos", "Videos Directory:"), 
+                          ("programs", "Programs Directory"),
+                          ("compressed", "Compressed Directory"),
+                          ("documents", "Documents Directory:"), 
+                          ("others", "Others Directory:")]:
+            self.create_label_entry_button(options_frame, text, self.target_dirs[key], lambda k=key: self.browse_target_directory(k), list(self.target_dirs.keys()).index(key))
 
         ttk.Button(options_frame, text="Save", command=self.save_settings).grid(column=0, row=7, columnspan=3, pady=10)
 
@@ -152,14 +136,12 @@ class FileOrganizer:
             return
 
         self.observer = Observer()
-        event_handler = DownloadEventHandler(self.update_status, self.target_dirs)
+        event_handler = DownloadEventHandler(self.update_status, self.target_dirs, self.file_movements)
         self.observer.schedule(event_handler, self.downloads_dir_path, recursive=False)
 
         self.observer_thread = threading.Thread(target=self.observer.start)
         self.observer_thread.start()
 
-        # self.start_button.config(state='disabled')
-        # self.stop_button.config(state='normal')
         self.update_status(f"Monitoring {self.downloads_dir_path}")
         self.progress.start()
 
@@ -170,8 +152,6 @@ class FileOrganizer:
             self.observer.join()
             self.observer = None
 
-        # self.start_button.config(state='normal')
-        # self.stop_button.config(state='disabled')
         self.update_status("Not monitoring")
         self.progress.stop()
 
@@ -188,6 +168,8 @@ class FileOrganizer:
             if os.path.isfile(file_path):
                 file_type = self.get_file_type(file_path)
                 target_path = os.path.join(self.target_dirs[file_type].get(), filename)
+                # Ensure the target directory exists
+                os.makedirs(os.path.dirname(target_path), exist_ok=True)
                 self.move_file_with_retry(file_path, target_path)
         self.update_status("Organization complete!")
 
@@ -204,8 +186,6 @@ class FileOrganizer:
         except Exception as e:
             self.update_status(f"Failed to undo: {e}")
         
-        # if not self.file_movements:
-        #     self.undo_button.config(state='disabled')
     #
     def get_file_type(self, file_path):
         ext = os.path.splitext(file_path)[1].lower()
@@ -231,7 +211,6 @@ class FileOrganizer:
                 shutil.move(src_path, dest_path)
                 self.file_movements.append((src_path, dest_path))  # Record the movement
                 self.update_status(f"Moved: {os.path.basename(src_path)} to {dest_path}")
-                self.undo_button.config(state='normal')
                 return True
             except PermissionError:
                 self.update_status(f"PermissionError: Retrying in {delay} seconds... ({i+1}/{retries})")
@@ -293,7 +272,6 @@ class DownloadEventHandler(FileSystemEventHandler):
             os.makedirs(path, exist_ok=True)
 
     #
-    @staticmethod
     def get_file_type(file_path):
         ext = os.path.splitext(file_path)[1].lower()
         if ext in ['.jpg', '.jpeg', '.png', '.gif', '.svg']:
